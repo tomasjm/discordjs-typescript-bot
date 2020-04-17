@@ -1,19 +1,6 @@
 import low from 'lowdb';
 import FileAsync from 'lowdb/adapters/FileAsync';
-
-export interface SongItem {
-    user_id: number;
-    url: string;
-}
-
-export interface SongList {
-    server_id: number;
-    songs: SongItem[];
-}
-
-interface IDatabase {
-    queue: SongList[]
-}
+import { IDatabase } from "./interfaces/database";
 
 class Database {
     private database: low.LowdbAsync<IDatabase>;

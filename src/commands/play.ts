@@ -1,103 +1,102 @@
-import { Message, VoiceConnection } from 'discord.js';
+import {TextChannel } from 'discord.js';
 import ytdl from "ytdl-core";
-import Command from '../command';
-import db, { SongItem, SongList } from '../database';
-
+import { PlayCommand } from '../interfaces/command';
+import { SongItem } from "../interfaces/database";
+import { Message, ServerConnectionInfo } from "../interfaces/discord";
+import ServerData from "../data";
+import chalk from 'chalk';
 /*
-  TODO: BUSCAR, LISTAR Y ARREGLAR BUGS
+  PASOS:
 
-  1- A veces no reproduce música
-  2- Necesita la URL completa
-  3- Si la lista ya existe, no reproduce musica bien, pues, se debe actualizar el VoiceConnection
+  1- Confirmar permisos [LISTO]
+  2- Confirmar que el usuario esté en un canal de voz [LISTO]
+  3- Confirmar si es que existe ya un canal de voz registrado, y confirmar que el usuario esté en el mismo canal. [LISTO]
+
+  4- Obtener la canción y agregarla a la playlist [LISTO]
+  5- Confirmar si ya se está reproduciendo musica (VoiceConnection) [LISTO]
+  6- Si isPlaying = false, generar la nueva conexión si es que no existe y es distinta al canal del usuario. [LISTO]
+
+
 */
 
-interface PlayCommand extends Command {
-  playSong(serverId: number, voiceConnection: VoiceConnection): void;
-  checkPermissions(message: Message): boolean;
-}
+
 const cmd: PlayCommand = {
   name: 'play',
   description: 'Reproduce una canción',
   async execute(message: Message, args: string[]) {
-    console.log('-------------------- COMANDO PLAY --------------------')
-    console.log(args);
-    let permissions: boolean = this.checkPermissions(message);
-    if (!permissions) return;
-    const serverId: number = parseInt(message.guild!.id);
-    const requestedSong: string = args[0];
-    const userId: number = parseInt(message.author.id);
-    console.log(`ServerId: ${serverId}`);
-    console.log(`Song: ${requestedSong}`);
-    console.log(`UserId: ${userId}`);
-
-
-    //TODO BUSCAR INFORMACION POR TERMINO
-    const songInfo = await ytdl.getInfo(requestedSong); 
-    const songItem: SongItem = {
-      user_id: userId,
-      url: songInfo.video_url
-    }
-    console.log(`SongItem: ${songItem}`);
-
-
-    console.log(`Buscando lista para server: ${serverId}`);
-    const songList = db.getConnection().get('queue').find({ server_id: serverId }).value();
-    console.log(`Lista existente?: ${JSON.stringify(songList)}`)
-
-    const voiceConnection = await message.member?.voice.channel?.join();
-    //TODO ESTÁ REPRODUCIENDO
-    if (songList) { 
-      console.log(`Lista existe, actualizando lista con nueva canción`)
-      db.getConnection().get('queue').find({ server_id: serverId }).assign({ server_id: songList.server_id, songs: [...songList.songs, songItem] }).write();
-
-      //TODO NO ESTÁ REPRODUCIENDO
-    } else { 
-      console.log(`Lista no existe, creando lista con nueva canción`)
-      const newSongList: SongList = {
-        server_id: serverId,
-        songs: [songItem]
-      }
-      db.getConnection().get('queue').push(newSongList).write();
-      console.log('intentando conectar al canal de voz')
-      if (voiceConnection) {
-        this.playSong(serverId, voiceConnection);
-      }
-    }
-    
-    console.log('finished')
-  },
-  checkPermissions(message: Message): boolean {
+    console.log("------------------")
     const voiceChannel = message.member?.voice.channel;
-    if (!voiceChannel) {
-      message.channel.send(
-        "Tienes que estar en una sala de voz para escuchar música"
-      );
-      return false;
-    }
+    const textChannel = <TextChannel>message.channel;
+    if (!voiceChannel) return message.channel.send("Tienes que estar en una sala de voz para escuchar música");
+    
     const permissions = voiceChannel.permissionsFor(message.client.user!);
     if (!permissions?.has("CONNECT") || !permissions?.has("SPEAK")) {
-      message.channel.send(
-        "No tengo los permisos necesarios para entrar al canal de voz y/o colocar música"
-      );
-      return false;
+      return message.channel.send("No tengo los permisos necesarios para entrar al canal de voz y/o colocar música");
     }
-    return true;
+    const serverId: number = parseInt(message.guild!.id);
+    let currentServerInfoExists: boolean = ServerData.has(serverId);
+    console.log(`info exists: ${currentServerInfoExists}`);
+    let currentServerInfo: ServerConnectionInfo;
+    if (currentServerInfoExists) {
+      currentServerInfo = ServerData.get(serverId)!;
+      if (currentServerInfo.voiceChannel !== voiceChannel && currentServerInfo.voiceChannel != null) {
+        console.log(chalk.red(currentServerInfo.voiceChannel));
+        console.log(chalk.red(voiceChannel));
+        return message.channel.send("Tienes que estar en la misma sala de voz para colocar música"); 
+      }
+    } else {
+      const serverInfo: ServerConnectionInfo = {
+        voiceChannel,
+        textChannel,
+        voiceConnection: null,
+        queue: [],
+        isPlaying: false
+      }
+      currentServerInfo = serverInfo;
+    }
+    const songInfo = await ytdl.getInfo(args[0]); 
+    const songItem: SongItem = {
+      user_id: parseInt(message.member!.id),
+      url: songInfo.video_url
+    }
+    currentServerInfo.queue.push(songItem);
+
+
+    if (currentServerInfo.isPlaying) return ServerData.set(serverId, currentServerInfo);
+
+    if (currentServerInfo.voiceConnection) {
+      currentServerInfo.isPlaying = true;
+      ServerData.set(serverId, currentServerInfo)
+      return this.playSong(message, serverId);
+    };
+    const voiceConnection = await voiceChannel.join();
+    if (voiceConnection) {
+      currentServerInfo.isPlaying = true;
+      currentServerInfo.voiceConnection = voiceConnection;
+      ServerData.set(serverId, currentServerInfo);
+      this.playSong(message, serverId);
+    } else return message.channel.send("Hubo un error al intentar entrar al canal de voz"); 
+    
+
   },
-  async playSong(serverId: number, voiceConnection: VoiceConnection) {
-    const songList: SongList = db.getConnection().get('queue').find({server_id: serverId}).value();
-    const song: SongItem = songList.songs[0];
-
-    if (!song) {
-     await voiceConnection.disconnect();
-     return;
-    }
-
-    const dispatcher = voiceConnection
-    .play(ytdl(song.url))
+  async playSong(message: Message, serverId: number) {
+    const currentServerInfo = ServerData.get(serverId);
+    let songList: SongItem[] | undefined = currentServerInfo?.queue;
+    let currentSong: SongItem = songList![0];
+      if (!currentSong) {
+        await currentServerInfo?.voiceConnection!.disconnect();
+        currentServerInfo!.isPlaying = false;
+        currentServerInfo!.textChannel = null;
+        currentServerInfo!.voiceChannel = null;
+        currentServerInfo!.voiceConnection = null;
+        return ServerData.set(serverId, currentServerInfo!)
+      }
+    const dispatcher = currentServerInfo?.voiceConnection!
+    .play(ytdl(currentSong.url))
     .on("finish", () => {
-      songList.songs.shift();
-      db.getConnection().get('queue').find({ server_id: serverId }).assign({ server_id: songList.server_id, songs: [...songList.songs] }).write();
-      this.playSong(serverId, voiceConnection);
+      songList!.shift();
+      currentServerInfo!.queue = songList!;
+      this.playSong(message, serverId);
     })
     .on("error", error => console.error(error));
     dispatcher.setVolumeLogarithmic(5 / 5);

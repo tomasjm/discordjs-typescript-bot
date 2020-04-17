@@ -1,8 +1,12 @@
 import * as Discord from 'discord.js';
 import { prefix, token } from "./config.json";
 import fs from 'fs';
-import Command from './command';
+import {Command} from './interfaces/command';
 import db from './database';
+import chalk from 'chalk';
+import { Message, ServerConnectionInfo } from "./interfaces/discord";
+import ServerData from "./data";
+
 
 class MusicBot {
 	private client: Discord.Client;
@@ -19,7 +23,7 @@ class MusicBot {
 			const command_path: string = `./commands/${file}`;
 			const command: Command = await import(command_path);
 			this.commands.set(command.name, command);
-			console.log(`Se ha agregado el comando: ${command.name}`);
+			console.log(`Se ha agregado el comando: ${chalk.blue(command.name)}`);
 		}
 	}
 	public async start(): Promise<void> {
@@ -44,7 +48,10 @@ _bot.Client().once('ready', () => {
 		type: 'WATCHING'
 	});
 });
-_bot.Client().on('message', (message: Discord.Message) => {
+_bot.Client().on('message', (message: Message) => {
+	//console.log(`ServerInfo: ${chalk.red(JSON.stringify(ServerData.get(parseInt(message.guild!.id))))}`);
+
+	console.log("---------------")
 	console.log('Se ha recibido un mensaje')
 	if (!message.content.startsWith(prefix) || message.author.bot) return;
 	console.log('Se ha pasado la validación de comando')

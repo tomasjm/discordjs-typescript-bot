@@ -1,11 +1,12 @@
 import { Message } from '../interfaces/discord';
 import {Command} from '../interfaces/command';
-import data from "../data";
+import serverData from '../data';
 const cmd: Command = {
-	name: 'ping',
-	description: 'Ping!',
+	name: 'info',
+	description: 'info!',
 	execute(message: Message, args: string[] = []) {
-		message.channel.send('Pong');
+		console.log(JSON.stringify(serverData.get(parseInt(message.guild!.id))?.queue))
+		message.channel.send('Print logs');
 	}
 }
 module.exports = cmd;
