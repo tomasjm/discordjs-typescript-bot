@@ -5,10 +5,16 @@
   "author": "Tomás Jiménez",
   "license": "MIT",
   "dependencies": {
+    "@discordjs/opus": "^0.1.0",
     "discord.js": "^12.1.1",
+    "ffmpeg": "^0.0.4",
+    "ffmpeg-static": "^4.1.1",
+    "fluent-ffmpeg": "^2.1.2",
+    "lowdb": "^1.0.0",
     "ytdl-core": "^2.1.0"
   },
   "devDependencies": {
+    "@types/lowdb": "^1.0.9",
     "@types/node": "^13.11.1",
     "@types/ws": "^7.2.4"
   }

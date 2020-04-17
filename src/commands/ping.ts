@@ -4,6 +4,7 @@ const cmd: Command = {
 	name: 'ping',
 	description: 'Ping!',
 	execute(message: Message, args: string[] = []) {
+		console.log('ping executed')
 		message.channel.send('Pong');
 	}
 }

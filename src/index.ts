@@ -1,15 +1,14 @@
-import * as ytdl from 'ytdl-core';
 import * as Discord from 'discord.js';
 import { prefix, token } from "./config.json";
-import path from 'path';
 import fs from 'fs';
 import Command from './command';
+import db from './database';
 
 class MusicBot {
 	private client: Discord.Client;
 	private token: string;
 	private commands: Discord.Collection<string, Command>;
-	constructor(token: string, prefix: string) {
+	constructor(token: string) {
 		this.commands = new Discord.Collection();
 		this.client = new Discord.Client();
 		this.token = token;
@@ -24,6 +23,7 @@ class MusicBot {
 		}
 	}
 	public async start(): Promise<void> {
+		await db.createConnection();
 		await this.setupCommands();
 		const result = await this.client.login(this.token);
 		console.log(result);
@@ -36,7 +36,8 @@ class MusicBot {
 	}
 }
 
-const _bot = new MusicBot(token, prefix);
+const _bot = new MusicBot(token);
+
 _bot.Client().once('ready', () => {
 	console.log('El bot está listo');
 	_bot.Client().user?.setActivity(`MEZCLANDO MUSICA CHORA`, {
@@ -44,21 +45,31 @@ _bot.Client().once('ready', () => {
 	});
 });
 _bot.Client().on('message', (message: Discord.Message) => {
+	console.log('Se ha recibido un mensaje')
 	if (!message.content.startsWith(prefix) || message.author.bot) return;
-
+	console.log('Se ha pasado la validación de comando')
 	const args = message.content.slice(prefix.length).split(/ +/);
+	console.log(`Argumentos: ${args}`);
 	const command = args.shift()?.toLowerCase();
+	console.log(`Comando: ${command}`)
 
 	if (command !== undefined) {
-		if (!_bot.Commands().has(command)) return;
+		console.log('Comando es definido')
+		if (!_bot.Commands().has(command)) {
+			console.log('Comando existe?')
+			console.log(_bot.Commands().has(command));
+		}
 	} else return;
 
+	console.log('Comando existente')
+
 	try {
+		console.log('Intentando ejecutar comando')
 		const cmd: Command | undefined = _bot.Commands().get(command);
 		if (cmd !== undefined) cmd.execute(message, args);
 	} catch (error) {
 		console.error(error);
-		message.reply('Hubo un error al ejectura el comando!');
+		message.reply('Hubo un error al ejecutar el comando!');
 	}
 
 });

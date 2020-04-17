@@ -62,6 +62,7 @@
 
     /* Advanced Options */
     "forceConsistentCasingInFileNames": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "strictPropertyInitialization": false
   }
 }
