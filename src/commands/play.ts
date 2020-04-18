@@ -1,4 +1,4 @@
-import {TextChannel } from 'discord.js';
+import {TextChannel, MessageEmbed } from 'discord.js';
 import ytdl from "ytdl-core";
 import { PlayCommand } from '../interfaces/command';
 import { SongItem } from "../interfaces/database";
@@ -24,7 +24,6 @@ const cmd: PlayCommand = {
   name: 'play',
   description: 'Reproduce una canción',
   async execute(message: Message, args: string[]) {
-    console.log("------------------")
     const voiceChannel = message.member?.voice.channel;
     const textChannel = <TextChannel>message.channel;
     if (!voiceChannel) return message.channel.send("Tienes que estar en una sala de voz para escuchar música");
@@ -35,16 +34,26 @@ const cmd: PlayCommand = {
     }
     const serverId: number = parseInt(message.guild!.id);
     let currentServerInfoExists: boolean = ServerData.has(serverId);
-    console.log(`info exists: ${currentServerInfoExists}`);
     let currentServerInfo: ServerConnectionInfo;
     if (currentServerInfoExists) {
       currentServerInfo = ServerData.get(serverId)!;
       if (currentServerInfo.voiceChannel !== voiceChannel && currentServerInfo.voiceChannel != null) {
-        console.log(chalk.red(currentServerInfo.voiceChannel));
-        console.log(chalk.red(voiceChannel));
         return message.channel.send("Tienes que estar en la misma sala de voz para colocar música"); 
       }
+      if (message.guild?.me?.voice.channel == null) {
+        // TODO HACER UNA FUNCION DE RESET
+        const serverInfo: ServerConnectionInfo = {
+          voiceChannel,
+          textChannel,
+          voiceConnection: null,
+          queue: [],
+          isPlaying: false
+        }
+        currentServerInfo = serverInfo;
+        ServerData.set(serverId, serverInfo);
+      }
     } else {
+       // TODO HACER UNA FUNCION DE RESET
       const serverInfo: ServerConnectionInfo = {
         voiceChannel,
         textChannel,
@@ -53,14 +62,33 @@ const cmd: PlayCommand = {
         isPlaying: false
       }
       currentServerInfo = serverInfo;
+      ServerData.set(serverId, serverInfo);
     }
-    const songInfo = await ytdl.getInfo(args[0]); 
-    const songItem: SongItem = {
-      user_id: parseInt(message.member!.id),
-      url: songInfo.video_url
-    }
-    currentServerInfo.queue.push(songItem);
-
+      let errorInfo: boolean = false;
+      let songItem: SongItem;
+      await ytdl.getInfo(args[0], (err, info) => {
+        if (err)  {
+          errorInfo = true;
+          return message.channel.send(`${err.name}: ${err.message}`); 
+        }
+        songItem = {
+          user_id: parseInt(message.member!.id),
+          url: info.video_url
+        }
+        currentServerInfo.queue.push(songItem);
+        const messageEmbed = new MessageEmbed()
+        .setColor('#0099ff')
+        .setTitle(`Se ha agregado una nueva canción`)
+        .setAuthor('DJ Pinochet breo', 'https://www.biografiasyvidas.com/biografia/p/fotos/pinochet.jpg')
+        .addFields(
+            { name: `Titulo`, value: info.title},
+            { name: `Url de video`, value: info.video_url},
+        )
+        .setTimestamp()
+        .setFooter('HIGH IQ BRO?');
+        message.channel.send(messageEmbed);
+      }); 
+      if (errorInfo) return;
 
     if (currentServerInfo.isPlaying) return ServerData.set(serverId, currentServerInfo);
 
@@ -79,24 +107,27 @@ const cmd: PlayCommand = {
     
 
   },
-  async playSong(message: Message, serverId: number) {
-    const currentServerInfo = ServerData.get(serverId);
+  async playSong(message: Message, serverId: number, replay:boolean = false) {
+    let currentServerInfo = ServerData.get(serverId);
     let songList: SongItem[] | undefined = currentServerInfo?.queue;
-    let currentSong: SongItem = songList![0];
-      if (!currentSong) {
+    if (replay) {
+      if (songList?.length != 0) songList?.shift();
+      else {
         await currentServerInfo?.voiceConnection!.disconnect();
-        currentServerInfo!.isPlaying = false;
-        currentServerInfo!.textChannel = null;
-        currentServerInfo!.voiceChannel = null;
-        currentServerInfo!.voiceConnection = null;
-        return ServerData.set(serverId, currentServerInfo!)
+        return ServerData.delete(serverId)
       }
+      currentServerInfo!.queue = songList!;
+      ServerData.set(serverId, currentServerInfo!); // Puede ser []
+    }
+    let currentSong: SongItem = songList![0];
+    if (!currentSong) {
+      await currentServerInfo?.voiceConnection!.disconnect();
+      return ServerData.delete(serverId)
+    }
     const dispatcher = currentServerInfo?.voiceConnection!
     .play(ytdl(currentSong.url))
     .on("finish", () => {
-      songList!.shift();
-      currentServerInfo!.queue = songList!;
-      this.playSong(message, serverId);
+      this.playSong(message, serverId, true);
     })
     .on("error", error => console.error(error));
     dispatcher.setVolumeLogarithmic(5 / 5);

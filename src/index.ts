@@ -49,29 +49,19 @@ _bot.Client().once('ready', () => {
 	});
 });
 _bot.Client().on('message', (message: Message) => {
-	//console.log(`ServerInfo: ${chalk.red(JSON.stringify(ServerData.get(parseInt(message.guild!.id))))}`);
 
-	console.log("---------------")
-	console.log('Se ha recibido un mensaje')
+	//console.log("---------------")
+	//console.log('Se ha recibido un mensaje')
 	if (!message.content.startsWith(prefix) || message.author.bot) return;
-	console.log('Se ha pasado la validación de comando')
+	//console.log('Se ha pasado la validación de comando')
 	const args = message.content.slice(prefix.length).split(/ +/);
-	console.log(`Argumentos: ${args}`);
+	//console.log(`Argumentos: ${args}`);
 	const command = args.shift()?.toLowerCase();
-	console.log(`Comando: ${command}`)
+	//console.log(`Comando: ${command}`)
 
-	if (command !== undefined) {
-		console.log('Comando es definido')
-		if (!_bot.Commands().has(command)) {
-			console.log('Comando existe?')
-			console.log(_bot.Commands().has(command));
-		}
-	} else return;
-
-	console.log('Comando existente')
+	if (command == undefined) return
 
 	try {
-		console.log('Intentando ejecutar comando')
 		const cmd: Command | undefined = _bot.Commands().get(command);
 		if (cmd !== undefined) cmd.execute(message, args);
 	} catch (error) {

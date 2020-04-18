@@ -7,6 +7,6 @@ export interface Command {
 }
 
 export interface PlayCommand extends Command {
-	playSong(message: Message, serverId: number): void;
+	playSong(message: Message, serverId: number, replay?: boolean): void;
 	checkPermissions?(message: Message): boolean;
   }
