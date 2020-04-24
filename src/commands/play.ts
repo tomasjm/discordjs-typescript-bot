@@ -139,7 +139,11 @@ const cmd: PlayCommand = {
     }
     let collectedMessage = collection.first()!.content;
     const messageContent = collectedMessage.split(" ");
-    const musicVideos: any[] = searchResults.slice(0, messageContent.length)
+    let musicVideos: any[] = [];
+    for (const selection of messageContent) {
+      const idx = parseInt(selection)-1;
+      musicVideos.push(searchResults[idx])
+    }
     for (const video of musicVideos) {
       currentServerInfo.queue.push({ user_id: parseInt(message.member!.id), url: video.link, title: video.title, duration: video.duration });
     }
