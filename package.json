@@ -11,21 +11,13 @@
     "ffmpeg": "^0.0.4",
     "ffmpeg-static": "^4.1.1",
     "fluent-ffmpeg": "^2.1.2",
-    "lowdb": "^1.0.0",
-    "simple-youtube-api": "^5.2.1",
-    "ytdl-core": "^2.1.0"
+    "ytdl-core": "^2.1.0",
+    "ytsr": "^0.1.12"
   },
   "devDependencies": {
     "@types/lowdb": "^1.0.9",
     "@types/node": "^13.11.1",
     "@types/ws": "^7.2.4",
     "typescript": "^3.8.3"
-  },
-  "scripts": {
-    "start": "node dist/index.js",
-    "build": "npx tsc"
-  },
-  "engines": {
-    "node": "12.x"
   }
 }

@@ -5,10 +5,7 @@ import { SongItem } from "../interfaces/discord";
 import { Message, ServerConnectionInfo } from "../interfaces/discord";
 import ServerData from "../data";
 import chalk from 'chalk';
-import Youtube from 'simple-youtube-api';
-import { youtube_api_key } from '../config.json';
-const ytClient = new Youtube(youtube_api_key);
-import { formatTime } from "../lib";
+import ytsr from 'ytsr';
 /*
   PASOS:
 
@@ -98,18 +95,25 @@ const cmd: PlayCommand = {
 
     // BUSQUEDA DE CANCIONES
 
-    let preSearchResults: any[] = await ytClient.searchVideos(args.join(' '),5,  { part : 'contentDetails' });
-        let searchResults: any[] = [];
-        for (const result in preSearchResults) {
-            let videoInfo = await ytClient.getVideo(preSearchResults[result].url);
-            searchResults.push(videoInfo);
-        }
+    // let preSearchResults: any[] = await ytClient.searchVideos(args.join(' '),5,  { part : 'contentDetails' });
+    //     let searchResults: any[] = [];
+    //     for (const result in preSearchResults) {
+    //         let videoInfo = await ytClient.getVideo(preSearchResults[result].url);
+    //         searchResults.push(videoInfo);
+    //     }
+    const ytsrSearchFilters = await ytsr.getFilters(args.join(' '));
+    const ytsrSearchFilter = ytsrSearchFilters.get('Type').find((o: any) => o.name == 'Video');
+    const searchResultsObject = await ytsr(null, {
+        limit: 5,
+        nextpageRef: ytsrSearchFilter.ref
+    });
+    const searchResults: any[] = searchResultsObject.items; 
     const listEmbed = new MessageEmbed()
       .setColor('#0099ff')
       .setTitle(`Selecciona las canciones que deseas agregar EJ: 1 | 1 5 | 1 3 4 | 1 2 3 4 5`)
       .setAuthor('DJ Pinochet breo', 'https://www.biografiasyvidas.com/biografia/p/fotos/pinochet.jpg')
       .setDescription(
-        searchResults.map((videoItem, index) => `#${index + 1} - ${videoItem.title} | (${formatTime(videoItem.duration)})`)
+        searchResults.map((videoItem, index) => `#${index + 1} - ${videoItem.title} | (${videoItem.duration})`)
       )
       .setTimestamp()
       .setFooter('HIGH IQ BRO?');
@@ -137,13 +141,13 @@ const cmd: PlayCommand = {
     const messageContent = collectedMessage.split(" ");
     const musicVideos: any[] = searchResults.slice(0, messageContent.length)
     for (const video of musicVideos) {
-      currentServerInfo.queue.push({ user_id: parseInt(message.member!.id), url: video.url, title: video.title, duration: video.duration });
+      currentServerInfo.queue.push({ user_id: parseInt(message.member!.id), url: video.link, title: video.title, duration: video.duration });
     }
     const messageEmbed = new MessageEmbed()
       .setColor('#0099ff')
       .setTitle( (musicVideos.length == 1) ? `Se ha agregado una nueva canción` : `Se han agregado ${musicVideos.length} canciones`)
       .setAuthor('DJ Pinochet breo', 'https://www.biografiasyvidas.com/biografia/p/fotos/pinochet.jpg')
-      .setDescription(musicVideos.map((video) => `- ${video.title} | (${formatTime(video.duration)})`))
+      .setDescription(musicVideos.map((video) => `- ${video.title} | (${video.duration})`))
       .setTimestamp()
       .setFooter('HIGH IQ BRO?');
     message.channel.send(messageEmbed);

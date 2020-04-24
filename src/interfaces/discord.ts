@@ -5,16 +5,16 @@ export interface Message extends Discord.Message {
     
 }
 
-export interface Duration {
-    hours: number;
-    minutes: number;
-    seconds: number;
-}
+// export interface Duration {
+//     hours: number;
+//     minutes: number;
+//     seconds: number;
+// }
 export interface SongItem {
     user_id: number;
     url: string;
     title: string;
-    duration: Duration;
+    duration: string;
 }
 export interface ServerConnectionInfo {
     voiceChannel: Discord.VoiceChannel | undefined | null;

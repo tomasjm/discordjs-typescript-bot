@@ -72,4 +72,4 @@ _bot.Client().on('message', (message: Message) => {
 
 });
 _bot.start();
-require('http').createServer().listen(3000)
+process.on('unhandledRejection', (reason, p) => { throw reason });
