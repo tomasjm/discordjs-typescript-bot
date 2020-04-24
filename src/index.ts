@@ -2,10 +2,9 @@ import * as Discord from 'discord.js';
 import { prefix, token } from "./config.json";
 import fs from 'fs';
 import {Command} from './interfaces/command';
-import db from './database';
+// import db from './database';
 import chalk from 'chalk';
 import { Message, ServerConnectionInfo } from "./interfaces/discord";
-import ServerData from "./data";
 
 
 class MusicBot {
@@ -27,7 +26,7 @@ class MusicBot {
 		}
 	}
 	public async start(): Promise<void> {
-		await db.createConnection();
+		//await db.createConnection();
 		await this.setupCommands();
 		const result = await this.client.login(this.token);
 		console.log(result);
@@ -50,19 +49,20 @@ _bot.Client().once('ready', () => {
 });
 _bot.Client().on('message', (message: Message) => {
 
-	//console.log("---------------")
-	//console.log('Se ha recibido un mensaje')
+	console.log("---------------")
+	console.log('Se ha recibido un mensaje')
+	
 	if (!message.content.startsWith(prefix) || message.author.bot) return;
-	//console.log('Se ha pasado la validación de comando')
+	console.log('Se ha pasado la validación de comando')
 	const args = message.content.slice(prefix.length).split(/ +/);
-	//console.log(`Argumentos: ${args}`);
+	console.log(`Argumentos: ${args}`);
 	const command = args.shift()?.toLowerCase();
-	//console.log(`Comando: ${command}`)
-
+	console.log(`Comando: ${command}`)
+	
 	if (command == undefined) return
 
 	try {
-		const cmd: Command | undefined = _bot.Commands().get(command);
+		const cmd: Command | undefined = _bot.Commands().get(command) || _bot.Commands().find((c: Command) => (c.aliases) ? c.aliases.includes(command) : false);
 		if (cmd !== undefined) cmd.execute(message, args);
 	} catch (error) {
 		console.error(error);

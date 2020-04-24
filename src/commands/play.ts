@@ -1,10 +1,14 @@
-import {TextChannel, MessageEmbed } from 'discord.js';
+import { TextChannel, MessageEmbed } from 'discord.js';
 import ytdl from "ytdl-core";
 import { PlayCommand } from '../interfaces/command';
-import { SongItem } from "../interfaces/database";
+import { SongItem } from "../interfaces/discord";
 import { Message, ServerConnectionInfo } from "../interfaces/discord";
 import ServerData from "../data";
 import chalk from 'chalk';
+import Youtube from 'simple-youtube-api';
+import { youtube_api_key } from '../config.json';
+const ytClient = new Youtube(youtube_api_key);
+import { formatTime } from "../lib";
 /*
   PASOS:
 
@@ -23,11 +27,13 @@ import chalk from 'chalk';
 const cmd: PlayCommand = {
   name: 'play',
   description: 'Reproduce una canción',
+  aliases: ['p'],
   async execute(message: Message, args: string[]) {
+    console.log('executed');
     const voiceChannel = message.member?.voice.channel;
     const textChannel = <TextChannel>message.channel;
     if (!voiceChannel) return message.channel.send("Tienes que estar en una sala de voz para escuchar música");
-    
+
     const permissions = voiceChannel.permissionsFor(message.client.user!);
     if (!permissions?.has("CONNECT") || !permissions?.has("SPEAK")) {
       return message.channel.send("No tengo los permisos necesarios para entrar al canal de voz y/o colocar música");
@@ -38,7 +44,7 @@ const cmd: PlayCommand = {
     if (currentServerInfoExists) {
       currentServerInfo = ServerData.get(serverId)!;
       if (currentServerInfo.voiceChannel !== voiceChannel && currentServerInfo.voiceChannel != null) {
-        return message.channel.send("Tienes que estar en la misma sala de voz para colocar música"); 
+        return message.channel.send("Tienes que estar en la misma sala de voz para colocar música");
       }
       if (message.guild?.me?.voice.channel == null) {
         // TODO HACER UNA FUNCION DE RESET
@@ -53,7 +59,7 @@ const cmd: PlayCommand = {
         ServerData.set(serverId, serverInfo);
       }
     } else {
-       // TODO HACER UNA FUNCION DE RESET
+      // TODO HACER UNA FUNCION DE RESET
       const serverInfo: ServerConnectionInfo = {
         voiceChannel,
         textChannel,
@@ -64,31 +70,86 @@ const cmd: PlayCommand = {
       currentServerInfo = serverInfo;
       ServerData.set(serverId, serverInfo);
     }
-      let errorInfo: boolean = false;
-      let songItem: SongItem;
-      await ytdl.getInfo(args[0], (err, info) => {
-        if (err)  {
-          errorInfo = true;
-          return message.channel.send(`${err.name}: ${err.message}`); 
+    // let errorInfo: boolean = false;
+    // let songItem: SongItem;
+    // await ytdl.getInfo(args[0], (err, info) => {
+    //   if (err)  {
+    //     errorInfo = true;
+    //     return message.channel.send(`${err.name}: ${err.message}`); 
+    //   }
+    //   songItem = {
+    //     user_id: parseInt(message.member!.id),
+    //     url: info.video_url
+    //   }
+    //   currentServerInfo.queue.push(songItem);
+    //   const messageEmbed = new MessageEmbed()
+    //   .setColor('#0099ff')
+    //   .setTitle(`Se ha agregado una nueva canción`)
+    //   .setAuthor('DJ Pinochet breo', 'https://www.biografiasyvidas.com/biografia/p/fotos/pinochet.jpg')
+    //   .addFields(
+    //       { name: `Titulo`, value: info.title},
+    //       { name: `Url de video`, value: info.video_url},
+    //   )
+    //   .setTimestamp()
+    //   .setFooter('HIGH IQ BRO?');
+    //   message.channel.send(messageEmbed);
+    // }); 
+    // if (errorInfo) return;
+
+    // BUSQUEDA DE CANCIONES
+
+    let preSearchResults: any[] = await ytClient.searchVideos(args.join(' '),5,  { part : 'contentDetails' });
+        let searchResults: any[] = [];
+        for (const result in preSearchResults) {
+            let videoInfo = await ytClient.getVideo(preSearchResults[result].url);
+            searchResults.push(videoInfo);
         }
-        songItem = {
-          user_id: parseInt(message.member!.id),
-          url: info.video_url
+    const listEmbed = new MessageEmbed()
+      .setColor('#0099ff')
+      .setTitle(`Selecciona las canciones que deseas agregar EJ: 1 | 1 5 | 1 3 4 | 1 2 3 4 5`)
+      .setAuthor('DJ Pinochet breo', 'https://www.biografiasyvidas.com/biografia/p/fotos/pinochet.jpg')
+      .setDescription(
+        searchResults.map((videoItem, index) => `#${index + 1} - ${videoItem.title} | (${formatTime(videoItem.duration)})`)
+      )
+      .setTimestamp()
+      .setFooter('HIGH IQ BRO?');
+
+    message.channel.send(listEmbed);
+
+    const filter = (m: Message) => {
+      if (m.author.id !== message.author.id) return false;
+      const messageContent = m.content.split(" ");
+      let validMessage = true;
+      for (const message of messageContent) {
+        if (!(typeof (parseInt(message)) == 'number' && parseInt(message) > 0 && parseInt(message) <= 5)) {
+          validMessage = false;
         }
-        currentServerInfo.queue.push(songItem);
-        const messageEmbed = new MessageEmbed()
-        .setColor('#0099ff')
-        .setTitle(`Se ha agregado una nueva canción`)
-        .setAuthor('DJ Pinochet breo', 'https://www.biografiasyvidas.com/biografia/p/fotos/pinochet.jpg')
-        .addFields(
-            { name: `Titulo`, value: info.title},
-            { name: `Url de video`, value: info.video_url},
-        )
-        .setTimestamp()
-        .setFooter('HIGH IQ BRO?');
-        message.channel.send(messageEmbed);
-      }); 
-      if (errorInfo) return;
+      }
+      return validMessage;
+    };
+    let collection;
+    try {
+      collection = await message.channel.awaitMessages(filter, { max: 1, time: 10000, errors: ['time'] });
+    } catch (e) {
+      return message.channel.send("Pasaron 10 segundos antes de elegir las canciones, intentalo nuevamente")
+    }
+    let collectedMessage = collection.first()!.content;
+    const messageContent = collectedMessage.split(" ");
+    const musicVideos: any[] = searchResults.slice(0, messageContent.length)
+    for (const video of musicVideos) {
+      currentServerInfo.queue.push({ user_id: parseInt(message.member!.id), url: video.url, title: video.title, duration: video.duration });
+    }
+    const messageEmbed = new MessageEmbed()
+      .setColor('#0099ff')
+      .setTitle( (musicVideos.length == 1) ? `Se ha agregado una nueva canción` : `Se han agregado ${musicVideos.length} canciones`)
+      .setAuthor('DJ Pinochet breo', 'https://www.biografiasyvidas.com/biografia/p/fotos/pinochet.jpg')
+      .setDescription(musicVideos.map((video) => `- ${video.title} | (${formatTime(video.duration)})`))
+      .setTimestamp()
+      .setFooter('HIGH IQ BRO?');
+    message.channel.send(messageEmbed);
+
+
+    // ------ FIN BUSQUEDA DE CANCIONES -------------
 
     if (currentServerInfo.isPlaying) return ServerData.set(serverId, currentServerInfo);
 
@@ -103,11 +164,11 @@ const cmd: PlayCommand = {
       currentServerInfo.voiceConnection = voiceConnection;
       ServerData.set(serverId, currentServerInfo);
       this.playSong(message, serverId);
-    } else return message.channel.send("Hubo un error al intentar entrar al canal de voz"); 
-    
+    } else return message.channel.send("Hubo un error al intentar entrar al canal de voz");
+
 
   },
-  async playSong(message: Message, serverId: number, replay:boolean = false) {
+  async playSong(message: Message, serverId: number, replay: boolean = false) {
     let currentServerInfo = ServerData.get(serverId);
     let songList: SongItem[] | undefined = currentServerInfo?.queue;
     if (replay) {
@@ -125,11 +186,11 @@ const cmd: PlayCommand = {
       return ServerData.delete(serverId)
     }
     const dispatcher = currentServerInfo?.voiceConnection!
-    .play(ytdl(currentSong.url))
-    .on("finish", () => {
-      this.playSong(message, serverId, true);
-    })
-    .on("error", error => console.error(error));
+      .play(ytdl(currentSong.url))
+      .on("finish", () => {
+        this.playSong(message, serverId, true);
+      })
+      .on("error", error => console.error(error));
     dispatcher.setVolumeLogarithmic(5 / 5);
 
   }

@@ -5,6 +5,7 @@ import { MessageEmbed } from 'discord.js';
 const cmd: Command = {
     name: 'skip',
     description: 'Adelantar una canción',
+    aliases: ['s'],
     execute(message: Message, args: string[] = []) {
         const serverInfo = data.get(parseInt(message.guild!.id));
         if (!serverInfo) return message.channel.send("No tengo información de música");
