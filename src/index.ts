@@ -17,9 +17,10 @@ class MusicBot {
 		this.token = token;
 	}
 	private async setupCommands(): Promise<void> {
-		const commandFiles: string[] = fs.readdirSync('./commands').filter(file => file.endsWith('.js'));
+		console.log(chalk.red());
+		const commandFiles: string[] = fs.readdirSync(__dirname + '/commands').filter(file => file.endsWith('.js'));
 		for (const file of commandFiles) {
-			const command_path: string = `./commands/${file}`;
+			const command_path: string = `${__dirname}/commands/${file}`;
 			const command: Command = await import(command_path);
 			this.commands.set(command.name, command);
 			console.log(`Se ha agregado el comando: ${chalk.blue(command.name)}`);
@@ -71,3 +72,4 @@ _bot.Client().on('message', (message: Message) => {
 
 });
 _bot.start();
+require('http').createServer().listen(3000)

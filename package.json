@@ -1,7 +1,7 @@
 {
   "name": "tom-musicbot",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "dist/index.js",
   "author": "Tomás Jiménez",
   "license": "MIT",
   "dependencies": {
@@ -18,6 +18,14 @@
   "devDependencies": {
     "@types/lowdb": "^1.0.9",
     "@types/node": "^13.11.1",
-    "@types/ws": "^7.2.4"
+    "@types/ws": "^7.2.4",
+    "typescript": "^3.8.3"
+  },
+  "scripts": {
+    "start": "node dist/index.js",
+    "build": "npx tsc"
+  },
+  "engines": {
+    "node": "12.x"
   }
 }
