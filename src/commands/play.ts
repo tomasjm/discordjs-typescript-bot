@@ -194,7 +194,10 @@ const cmd: PlayCommand = {
       return ServerData.delete(serverId)
     }
     const dispatcher = currentServerInfo?.voiceConnection!
-      .play(ytdl(currentSong.url))
+      .play(ytdl(currentSong.url, {
+        filter: "audioonly",
+        highWaterMark: 1<<25
+      }))
       .on("finish", () => {
         this.playSong(message, serverId, true);
       })
